@@ -147,6 +147,7 @@ class Kohana_Pagination {
 				switch ($this->config['current_page']['source'])
 				{
 					case 'query_string':
+					case 'mixed':
 						$this->current_page = isset($_GET[$this->config['current_page']['key']])
 							? (int) $_GET[$this->config['current_page']['key']]
 							: 1;
@@ -200,6 +201,9 @@ class Kohana_Pagination {
 
 			case 'route':
 				return URL::site(Request::current()->uri(array($this->config['current_page']['key'] => $page))).URL::query();
+
+			case 'mixed':
+			    return URL::site(Request::detect_uri()).URL::query(array($this->config['current_page']['key'] => $page));;
 		}
 
 		return '#';
