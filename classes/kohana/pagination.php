@@ -52,7 +52,7 @@ class Kohana_Pagination {
 
 	// Query offset
 	protected $offset;
-	
+
 	// Request object
 	protected $request;
 
@@ -78,7 +78,7 @@ class Kohana_Pagination {
 	{
 		// Overwrite system defaults with application defaults
 		$this->config = $this->config_group() + $this->config;
-		
+
 		// Assing Request
 		$this->request = ($request === NULL) ? Request::initial() : $request;
 
@@ -152,7 +152,7 @@ class Kohana_Pagination {
 			else
 			{
 				$query_key = $this->config['current_page']['key'];
-						
+
 				switch ($this->config['current_page']['source'])
 				{
 					case 'query_string':
