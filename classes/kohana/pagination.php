@@ -53,14 +53,14 @@ class Kohana_Pagination {
 	// Query offset
 	protected $offset;
 	
-	// Request object
-	protected $_request;
-	
 	// Route to use for URIs
-	protected $_route;
+	protected $route;
 	
 	// Parameters to use with Route to create URIs
-	protected $_route_params = array();
+	protected $route_params = array();
+
+	// Request object
+	protected $request;
 
 	/**
 	 * Creates a new Pagination object.
@@ -78,25 +78,27 @@ class Kohana_Pagination {
 	 *
 	 * @param   array  configuration
 	 * @return  void
+	 * @todo	Assign Request::current() instead in 3.2
 	 */
 	public function __construct(array $config = array(), Request $request = NULL)
 	{
 		// Overwrite system defaults with application defaults
 		$this->config = $this->config_group() + $this->config;
 		
-		// Assing Request
 		if ($request === NULL)
 		{
-			$request = Request::current();
+			$request = Request::initial();
 		}
 		
-		$this->_request = $request;
-
-		// Assign default Route
-		$this->_route = $request->route();
+		$this->request 	= $request;
+		$this->route 	= $request->route();
 		
 		// Assign default route params
-		$this->_route_params = $request->param();
+		$this->route_params = array(
+			'directory'		=> $request->directory(),
+			'controller' 	=> $request->controller(),
+			'action'		=> $request->action(),
+		) + $request->param();
 		
 		// Pagination setup
 		$this->setup($config);
@@ -168,17 +170,21 @@ class Kohana_Pagination {
 			else
 			{
 				$query_key = $this->config['current_page']['key'];
-						
+				
 				switch ($this->config['current_page']['source'])
 				{
 					case 'query_string':
-						$this->current_page = ($this->_request->query($query_key) !== NULL)
-							? (int) $this->_request->query($query_key)
+					case 'mixed':
+					
+						$this->current_page = ($this->request->query($query_key) !== NULL)
+							? (int) $this->request->query($query_key)
 							: 1;
 						break;
 
 					case 'route':
-						$this->current_page = (int) $this->_request->param($query_key, 1);
+					
+						$this->current_page = (int) $this->request->param($query_key, 1);
+						
 						break;
 				}
 			}
@@ -221,13 +227,14 @@ class Kohana_Pagination {
 		switch ($this->config['current_page']['source'])
 		{
 			case 'query_string':
+			case 'mixed':
 			
-				return URL::site($this->_route->uri($this->_route_params).
+				return URL::site($this->route->uri($this->route_params).
 					$this->query(array($this->config['current_page']['key'] => $page)));
 
 			case 'route':
 			
-				return URL::site($this->_route->uri(array_merge($this->_route_params, 
+				return URL::site($this->route->uri(array_merge($this->route_params, 
 					array($this->config['current_page']['key'] => $page))).$this->query());
 		}
 
@@ -289,9 +296,9 @@ class Kohana_Pagination {
 	public function request(Request $request = NULL)
 	{
 		if ($request === NULL)
-			return $this->_request;
+			return $this->request;
 			
-		$this->_request = $request;
+		$this->request = $request;
 		
 		return $this;
 	}
@@ -306,9 +313,9 @@ class Kohana_Pagination {
 	public function route(Route $route = NULL)
 	{
 		if ($route === NULL)
-			return $this->_route;
+			return $this->route;
 			
-		$this->_route = $route;
+		$this->route = $route;
 		
 		return $this;
 	}
@@ -323,9 +330,9 @@ class Kohana_Pagination {
 	public function route_params(array $route_params = NULL)
 	{
 		if ($route_params === NULL)
-			return $this->_route_params;
+			return $this->route_params;
 			
-		$this->_route_params = $route_params;
+		$this->route_params = $route_params;
 		
 		return $this;
 	}
@@ -341,12 +348,12 @@ class Kohana_Pagination {
 		if ($params === NULL)
 		{
 			// Use only the current parameters
-			$params = $this->_request->query();
+			$params = $this->request->query();
 		}
 		else
 		{
 			// Merge the current and new parameters
-			$params = array_merge($this->_request->query(), $params);
+			$params = array_merge($this->request->query(), $params);
 		}
 		
 		if (empty($params))
