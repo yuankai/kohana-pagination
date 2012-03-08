@@ -52,6 +52,12 @@ class Kohana_Pagination {
 
 	// Query offset
 	protected $offset;
+	
+	// Route to use for URIs
+	protected $route;
+	
+	// Parameters to use with Route to create URIs
+	protected $route_params = array();
 
 	// Request object
 	protected $request;
@@ -78,10 +84,22 @@ class Kohana_Pagination {
 	{
 		// Overwrite system defaults with application defaults
 		$this->config = $this->config_group() + $this->config;
-
-		// Assing Request
-		$this->request = ($request === NULL) ? Request::initial() : $request;
-
+		
+		if ($request === NULL)
+		{
+			$request = Request::initial();
+		}
+		
+		$this->request 	= $request;
+		$this->route 	= $request->route();
+		
+		// Assign default route params
+		$this->route_params = array(
+			'directory'		=> $request->directory(),
+			'controller' 	=> $request->controller(),
+			'action'		=> $request->action(),
+		) + $request->param();
+		
 		// Pagination setup
 		$this->setup($config);
 	}
@@ -152,18 +170,21 @@ class Kohana_Pagination {
 			else
 			{
 				$query_key = $this->config['current_page']['key'];
-
+				
 				switch ($this->config['current_page']['source'])
 				{
 					case 'query_string':
 					case 'mixed':
+					
 						$this->current_page = ($this->request->query($query_key) !== NULL)
 							? (int) $this->request->query($query_key)
 							: 1;
 						break;
 
 					case 'route':
+					
 						$this->current_page = (int) $this->request->param($query_key, 1);
+						
 						break;
 				}
 			}
@@ -207,19 +228,14 @@ class Kohana_Pagination {
 		{
 			case 'query_string':
 			case 'mixed':
-				return URL::site($this->request->uri()).URL::query(array($this->config['current_page']['key'] => $page));
+			
+				return URL::site($this->route->uri($this->route_params).
+					$this->query(array($this->config['current_page']['key'] => $page)));
 
 			case 'route':
-				return URL::site(
-					$this->request->route()->uri(
-						array(
-							$this->config['current_page']['key'] => $page,
-							'controller' => Request::current()->controller(),
-							'action' => Request::current()->action(),
-							'directory' => Request::current()->directory(),
-						) + Request::current()->param()
-					)
-				) . URL::query();
+			
+				return URL::site($this->route->uri(array_merge($this->route_params, 
+					array($this->config['current_page']['key'] => $page))).$this->query());
 		}
 
 		return '#';
@@ -267,6 +283,90 @@ class Kohana_Pagination {
 
 		// Pass on the whole Pagination object
 		return $view->set(get_object_vars($this))->set('page', $this)->render();
+	}
+	
+	
+	/**
+	 * Request setter / getter
+	 * 
+	 * @param	Request
+	 * @return	Request	If used as getter
+	 * @return	$this	Chainable as setter
+	 */
+	public function request(Request $request = NULL)
+	{
+		if ($request === NULL)
+			return $this->request;
+			
+		$this->request = $request;
+		
+		return $this;
+	}
+	
+	/**
+	 * Route setter / getter
+	 * 
+	 * @param	Route
+	 * @return	Route	Route if used as getter
+	 * @return	$this	Chainable as setter
+	 */
+	public function route(Route $route = NULL)
+	{
+		if ($route === NULL)
+			return $this->route;
+			
+		$this->route = $route;
+		
+		return $this;
+	}
+	
+	/**
+	 * Route parameters setter / getter
+	 * 
+	 * @param	array	Route parameters to set
+	 * @return	array	Route parameters if used as getter
+	 * @return	$this	Chainable as setter
+	 */
+	public function route_params(array $route_params = NULL)
+	{
+		if ($route_params === NULL)
+			return $this->route_params;
+			
+		$this->route_params = $route_params;
+		
+		return $this;
+	}
+	
+	/**
+	 * URL::query() replacement for Pagination use only
+	 * 
+	 * @param	array	Parameters to override
+	 * @return	string
+	 */
+	public function query(array $params = NULL)
+	{
+		if ($params === NULL)
+		{
+			// Use only the current parameters
+			$params = $this->request->query();
+		}
+		else
+		{
+			// Merge the current and new parameters
+			$params = array_merge($this->request->query(), $params);
+		}
+		
+		if (empty($params))
+		{
+			// No query parameters
+			return '';
+		}
+		
+		// Note: http_build_query returns an empty string for a params array with only NULL values
+		$query = http_build_query($params, '', '&');
+		
+		// Don't prepend '?' to an empty string
+		return ($query === '') ? '' : ('?'.$query);
 	}
 
 	/**
